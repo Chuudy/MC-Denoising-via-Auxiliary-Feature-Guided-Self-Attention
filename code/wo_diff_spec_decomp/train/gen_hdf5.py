@@ -16,6 +16,7 @@ class Hdf5Constructor:
         self.num_patches = num_patches
         self.seed = seed
         self.train_val_ratio = train_val_ratio
+        self.dataset_mode = "train"
 
         self.exr_paths = []
         self.gt_paths = []
@@ -29,13 +30,19 @@ class Hdf5Constructor:
 
     def get_exr_paths(self):
         print("\r\t-Get exr paths", end='')
-        self.noisy_path = os.path.join(self.dataset_path, '32spp')
-        self.gt_path = os.path.join(self.dataset_path, '32768spp')
+        self.noisy_path = os.path.join(self.data_path, '32spp')
+        self.gt_path = os.path.join(self.data_path, '32768spp')
         for root, dirs, files in os.walk(self.gt_path):
             if not dirs:
                 for file in files:
-                    gt_path = os.path.join(self.gt_path, '%s_%s_32768_' % (file.split('_')[0], file.split('_')[1]))
-                    exr_path = os.path.join(self.noisy_path, '%s_%s_32_' % (file.split('_')[0], file.split('_')[1]))
+                    # gt_path = os.path.join(self.gt_path, '%s_%s_32768_' % (file.split('_')[0], file.split('_')[1]))
+                    # exr_path = os.path.join(self.noisy_path, '%s_%s_32_' % (file.split('_')[0], file.split('_')[1]))
+                    ##### modified code starts
+                    gt_path = os.path.join(self.gt_path, file)
+                    directory_name = '%s' % file.split('.')[0]
+                    directory_name = directory_name.replace('xr','')
+                    exr_path = os.path.join(self.noisy_path, directory_name)
+                    ##### modified code ends
                     if gt_path not in self.gt_paths:
                         self.gt_paths.append(gt_path)
                         self.exr_paths.append(exr_path)
@@ -58,7 +65,10 @@ class Hdf5Constructor:
             elif not queues[1].empty():
                 path = queues[1].get()
                 dataset = 'val'
-            cropped, patches = get_cropped_patches(path[0], path[1], self.patch_size, self.num_patches, self.dataset_mode)
+            ### CODE MOD STARTS HERE
+            # cropped, patches = get_cropped_patches(path[0], path[1], self.patch_size, self.num_patches, self.dataset_mode)            
+            cropped, patches = get_cropped_patches(path[0], path[1], self.patch_size, self.num_patches)
+            ### CODE MOD ENDS HERE
 
             lock.acquire()
             with h5py.File(path_mapping[dataset], 'a') as hf:
@@ -74,13 +84,18 @@ class Hdf5Constructor:
         train_save_path = os.path.join(self.save_path, "train.h5")
         val_save_path = os.path.join(self.save_path, "val.h5")
         path_mapping = {'train': train_save_path, 'val': val_save_path}
-        name_shape_mapping = {'spec': (None, 128, 128, 3),
-                              'diff': (None, 128, 128, 3),
-                              'noisy': (None, 128, 128, 3),
-                              'spec_gt': (None, 128, 128, 3),
-                              'diff_gt': (None, 128, 128, 3),
+        ### CODE MOD STARTS HERE
+        # name_shape_mapping = {'spec': (None, 128, 128, 3),
+        #                       'diff': (None, 128, 128, 3),
+        #                       'noisy': (None, 128, 128, 3),
+        #                       'spec_gt': (None, 128, 128, 3),
+        #                       'diff_gt': (None, 128, 128, 3),
+        #                       'gt': (None, 128, 128, 3),
+        #                       'aux': (None, 128, 128, 7)}
+        name_shape_mapping = {'noisy': (None, 128, 128, 3),
                               'gt': (None, 128, 128, 3),
                               'aux': (None, 128, 128, 7)}
+        ### CODE MOD ENDS HERE
         queues = [Queue() for i in range(2)]  # [train_queue, val_queue]
         # the first 2 paths are used to initiate h5py files
         for i in range(2, len(self.paths)):
@@ -92,8 +107,13 @@ class Hdf5Constructor:
         print("\n\r\t-Initiating h5py files", end='')
         for i, n in enumerate(['train', 'val']):
             with h5py.File(path_mapping[n], 'w') as hf:
+                ### code mod starts here
+                # cropped, patches = get_cropped_patches(self.paths[i][0], self.paths[i][1], self.patch_size,
+                                                    #    self.num_patches, self.dataset_mode)
                 cropped, patches = get_cropped_patches(self.paths[i][0], self.paths[i][1], self.patch_size,
-                                                       self.num_patches, self.dataset_mode)
+                                                       self.num_patches)
+                ### code mod ends here
+
                 patch_count += len(cropped)
                 for key in name_shape_mapping.keys():
                     temp = np.array([c[key] for c in cropped])

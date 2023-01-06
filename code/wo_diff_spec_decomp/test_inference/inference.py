@@ -56,6 +56,7 @@ def inference(args, save_path):
                                                     0, aux_features_pre.shape[2] % args.blockSize), "constant", 0)
 
         noisy = noisy_exr['default']
+        noisy = noisy[:,:,0:3]
         pyexr.write(os.path.join(save_path, 'noisy.exr'), noisy)
         noisy = np.nan_to_num(noisy)
         noisy = np.clip(noisy, 0, np.max(noisy))[np.newaxis, :, :, :]

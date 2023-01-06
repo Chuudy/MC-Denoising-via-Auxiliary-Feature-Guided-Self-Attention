@@ -4,7 +4,9 @@ import pyexr
 from scipy import ndimage
 import random
 from random import randint
-
+### CODE MOD STARTS HERE
+import os
+### CODE MOD ENDS HERE
 
 # constants
 eps = 0.00316
@@ -45,34 +47,48 @@ def postprocess_specular(specular):
 def preprocess_data(exr_path, gt_path):
     data = {}
 
+    ### CODE MOD STARTS HERE
     # high spp
-    types = ['specular.exr', 'diffuse.exr', 'color.exr']
-    names = ['spec_gt', 'diff_gt', 'gt']
+    # types = ['specular.exr', 'diffuse.exr', 'color.exr']
+    # names = ['spec_gt', 'diff_gt', 'gt']
+    types = ['']
+    names = ['gt']
     for type, name in zip(types, names):
         path = gt_path + type
         exr = pyexr.open(path)
         d = exr.get_all()
+        d['default'] = d['default'][:,:,0:3] #added line
         data[name] = d['default']
     # low spp
-    types = ['specular.exr', 'diffuse.exr', 'normal.exr', 'depth.exr', 'albedo.exr', 'color.exr']
-    names = ['spec', 'diff', 'normal', 'depth', 'albedo', 'noisy']
+    # types = ['specular.exr', 'diffuse.exr', 'normal.exr', 'depth.exr', 'albedo.exr', 'color.exr']
+    # names = ['spec', 'diff', 'normal', 'depth', 'albedo', 'noisy']
+    types = ['normal.exr', 'depth.exr', 'texture.exr', 'color.exr']
+    names = ['normal', 'depth', 'albedo', 'noisy']
     for type, name in zip(types, names):
-        path = exr_path + type
+        # path = exr_path + type
+        path = os.path.join(exr_path,type)
         noisy_exr = pyexr.open(path)
         d = noisy_exr.get_all()
+        if name == 'depth':
+            d['default'] = d['default'][:,:,0:1]
+        else:
+            d['default'] = d['default'][:,:,0:3]
         data[name] = d['default']
+    ### CODE MOD ENDS HERE
 
     # nan to 0.0, inf to finite number
     for channel_name, channel_value in data.items():
         data[channel_name] = np.nan_to_num(channel_value)
 
+    ### CODE MOD STARTS HERE
     # clip data to avoid negative values
-    data['spec_gt'] = np.clip(data['spec_gt'], 0, np.max(data['spec_gt']))
-    data['diff_gt'] = np.clip(data['diff_gt'], 0, np.max(data['diff_gt']))
+    # data['spec_gt'] = np.clip(data['spec_gt'], 0, np.max(data['spec_gt']))
+    # data['diff_gt'] = np.clip(data['diff_gt'], 0, np.max(data['diff_gt']))
     data['gt'] = np.clip(data['gt'], 0, np.max(data['gt']))
-    data['spec'] = np.clip(data['spec'], 0, np.max(data['spec']))
-    data['diff'] = np.clip(data['diff'], 0, np.max(data['diff']))
+    # data['spec'] = np.clip(data['spec'], 0, np.max(data['spec']))
+    # data['diff'] = np.clip(data['diff'], 0, np.max(data['diff']))
     data['noisy'] = np.clip(data['noisy'], 0, np.max(data['noisy']))
+    ### CODE MOD ENDS HERE
 
     # normalize auxiliary features to [0.0, 1.0]
     # data['normal'] = preprocess_normal(data['normal'].copy())
